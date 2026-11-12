@@ -7,7 +7,7 @@ const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(
 function record(q,ok){const st=LS.get('stats',{});st[q.id]={ok:(st[q.id]?.ok||0)+ok,n:(st[q.id]?.n||0)+1,last:ok};LS.set('stats',st);
   const w=LS.get('wrong',{});if(!ok)w[q.id]=(w[q.id]||0)+1;LS.set('wrong',w);}
 const qs=(sub,ch)=>D.questions.filter(q=>q.sub===sub&&(ch==null||q.ch===ch));
-function home(){let h='<p class="muted">考试形式（官方）：每科100道单选题，每题1分，120分钟，闭卷机考，60分合格。</p>';
+function home(){let h='<section class="review-hero"><span class="eyebrow">理解，再记住</span><h1>把错题变成会用的知识</h1><p>先找混淆点，再看记忆提示，最后用一道变式题检查理解。</p><a class="btn" href="#/knowledge">开始知识点复习</a><a class="btn sec" href="#/backup">备份学习进度</a></section>'+'<p class="muted">考试形式（官方）：每科100道单选题，每题1分，120分钟，闭卷机考，60分合格。</p>';
   for(const s in SUB){const all=qs(s),st=LS.get('stats',{}),done=all.filter(q=>st[q.id]).length;
     h+=`<div class="card"><h2>${SUB[s]}</h2><div class="muted">题库 ${all.length} 题 · 已练 ${done}</div><div class="bar"><i style="width:${all.length?done/all.length*100:0}%"></i></div>
     <p><a class="btn" href="#/practice/${s}/all/seq">顺序练习</a><a class="btn" href="#/practice/${s}/all/rand">随机练习</a><a class="btn" href="#/exam/${s}">模拟考试</a></p><div class="grid">`;
@@ -57,16 +57,24 @@ function exam(s){const pool=qs(s);const by={};pool.forEach(q=>(by[q.ch]=by[q.ch]
   clearInterval(timerH);timerH=setInterval(tick,1000);r()}
 function wrong(){const w=LS.get('wrong',{});const list=D.questions.filter(q=>w[q.id]);
   app.innerHTML=`<h2>错题本（${list.length}）</h2>`+(list.length?`<a class="btn" href="#/wrongpractice">练习错题</a><button class="sec" id="clr">清空</button>`:'<p>暂无错题。</p>')+
-  list.map(q=>`<div class="card"><span class="tag">模拟练习题</span><span class="muted">错 ${w[q.id]} 次</span><p><b>${esc(q.q)}</b></p><div class="exp">正确答案：${'ABCD'[q.answer]}. ${esc(q.options[q.answer])}\n${esc(q.explanation)}</div><button class="sec" data-rm="${q.id}">移出错题本</button></div>`).join('');
+  list.map(q=>`<div class="card"><span class="tag">模拟练习题</span><span class="muted">错 ${esc(w[q.id])} 次</span><p><b>${esc(q.q)}</b></p><div class="exp">正确答案：${'ABCD'[q.answer]}. ${esc(q.options[q.answer])}\n${esc(q.explanation)}</div><button class="sec" data-rm="${q.id}">移出错题本</button></div>`).join('');
   document.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{delete w[b.dataset.rm];LS.set('wrong',w);wrong()});const c=$('#clr');if(c)c.onclick=()=>{if(confirm('清空错题本？')){LS.set('wrong',{});wrong()}}}
 function stats(){const st=LS.get('stats',{}),ex=LS.get('exams',[]);let h='<h2>学习统计</h2>';
   for(const s in SUB){h+=`<div class="card"><h3>${SUB[s]}</h3>`;D.chapters[s].forEach((c,i)=>{const l=qs(s,i+1),d=l.filter(q=>st[q.id]),ok=d.filter(q=>st[q.id].last).length;
     h+=`<div>第${i+1}章 ${esc(c.name)} <span class="muted">已练 ${d.length}/${l.length} · 最近正确率 ${d.length?Math.round(ok/d.length*100):0}%</span><div class="bar"><i style="width:${l.length?d.length/l.length*100:0}%"></i></div></div>`});h+='</div>'}
-  h+='<div class="card"><h3>模拟考试记录</h3>'+(ex.length?ex.slice(-20).reverse().map(e=>`<div>${new Date(e.t).toLocaleString()} · ${e.s==='s1'?'科目一':'科目二'} · <b>${e.score}</b>/${e.total}</div>`).join(''):'暂无')+'</div><button class="sec" id="rs">重置全部进度</button>';
+  h+='<div class="card"><h3>模拟考试记录</h3>'+(ex.length?ex.slice(-20).reverse().map(e=>`<div>${new Date(e.t).toLocaleString()} · ${e.s==='s1'?'科目一':'科目二'} · <b>${esc(e.score)}</b>/${esc(e.total)}</div>`).join(''):'暂无')+'</div><button class="sec" id="rs">重置全部进度</button>';
   app.innerHTML=h;$('#rs').onclick=()=>{if(confirm('确定清除所有本地进度？')){Object.keys(localStorage).filter(k=>k.startsWith('fe_')).forEach(k=>localStorage.removeItem(k));stats()}}}
-function route(){clearInterval(timerH);scrollTo(0,0);const p=location.hash.slice(2).split('/');
-  if(p[0]==='cards')return cards(p[1],+p[2]);if(p[0]==='allcards')return allcards(p[1],+p[2]);if(p[0]==='mustknow')return mustknow();if(p[0]==='changes')return changes();
+function routeUnsafe(){clearInterval(timerH);scrollTo(0,0);const p=location.hash.slice(2).split('/');
+  if(p[0]==='knowledge')return reviewKnowledge();if(p[0]==='backup')return reviewBackup();if(p[0]==='cards')return cards(p[1],+p[2]);if(p[0]==='allcards')return allcards(p[1],+p[2]);if(p[0]==='mustknow')return mustknow();if(p[0]==='changes')return changes();
   if(p[0]==='practice'){const ch=p[2]==='all'?null:+p[2];let l=qs(p[1],ch);if(p[3]==='rand')l=shuffle(l);return practice(l,SUB[p[1]]+(ch?` 第${ch}章`:'')+(p[3]==='rand'?' 随机':' 顺序'),p[3]==='seq'?p.join('_'):null)}
   if(p[0]==='exam')return exam(p[1]);if(p[0]==='wrong')return wrong();if(p[0]==='stats')return stats();
   if(p[0]==='wrongpractice'){const w=LS.get('wrong',{});return practice(shuffle(D.questions.filter(q=>w[q.id])),'错题练习')}home()}
-fetch('data.json').then(r=>r.json()).then(d=>{D=d;D.ai=false;addEventListener('hashchange',route);route()});
+fetch('data.json').then(r=>{if(!r.ok)throw Error('题库读取失败');return r.json()}).then(d=>{D=d;D.ai=false;addEventListener('hashchange',route);route()}).catch(()=>{app.innerHTML='<div class="card"><h2>题库暂时没有加载成功</h2><p>学习记录仍保存在当前浏览器。请检查网络后刷新，不要清除浏览器数据。</p><button id="retry-data">重新加载</button></div>';$('#retry-data').onclick=()=>location.reload()});
+
+function route(){
+ const p=location.hash.slice(2).split('/');
+ const withSub=['cards','allcards','practice','exam'];
+ const ch=p[2];
+ if(withSub.includes(p[0])&&(!Object.hasOwn(SUB,p[1])||(['cards','allcards','practice'].includes(p[0])&&!(p[0]==='practice'&&ch==='all')&&(!/^[1-9][0-9]*$/.test(ch||'')||+ch>D.chapters[p[1]].length)))){clearInterval(timerH);app.innerHTML='<div class="card"><h2>没有找到这个章节</h2><p>学习进度没有改变。</p><a href="#/">返回首页</a></div>';return}
+ try{routeUnsafe()}catch{clearInterval(timerH);app.innerHTML='<div class="card"><h2>这一页暂时无法显示</h2><p>请返回首页重试。学习记录没有被清空。</p><a href="#/">返回首页</a><a class="btn sec" href="#/backup">备份进度</a></div>'}
+}
